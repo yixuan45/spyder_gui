@@ -1,6 +1,9 @@
+import random
 import requests
 from lxml import etree
 import pymysql
+import hashlib
+from datetime import datetime
 
 
 class Spyder(object):
@@ -54,8 +57,29 @@ class Spyder(object):
         self.title = ""
         self.url = ""
         self.content = ""
+        self.updated = ""
+        self.pmd5 = ""
+        self.ND = ""  # 点赞数
+        self.NP = ""  # 评论数
+
+        """实例化可用对象"""
+        self.md5_hash = hashlib.md5()
+        self.now = datetime.now()
 
         # 连接数据库
+        self.conn = pymysql.connect(
+            host="127.0.0.1",
+            port=3306,
+            user="root",
+            password="45519yangxie3437",
+            db="spyder_gui"
+        )
+        self.cursor = self.conn.cursor()
+
+    def string_to_md5(self, input_string):
+        self.md5_hash.update(input_string.encode('utf-8'))
+        # 返回十六进制格式的哈希值
+        return self.md5_hash.hexdigest()
 
     def get_url1(self):
         """
@@ -73,9 +97,27 @@ class Spyder(object):
             list_now.append(self.url)
             list_now.append(self.content)
             self.data_list.append(list_now)
+            self.save_data()
 
     def save_data(self):
-        pass
+        for data_li in self.data_list:
+            self.title = data_li[0]
+            self.url = data_li[1]
+            self.content = data_li[2]
+            self.pmd5 = self.string_to_md5(self.url)
+            self.updated = self.now.strftime('%Y-%m-%d %H:%M:%S')
+            self.NP = random.randint(1, 15)
+            self.ND = random.randint(1, 30)
+            values = (
+                self.pmd5, self.updated, self.title, self.url, self.content, self.ND, self.NP)
+            try:
+                sql = "insert into spyder_gui(pmd5,updated,title,url,content,ND,NP) values (%s,%s,%s,%s,%s,%s,%s)"
+                self.cursor.execute(sql, values)
+                self.conn.commit()
+            except Exception as e:
+                print(e)
+                # 进行回滚
+                self.conn.rollback()
 
     def run(self):
         """主程序"""
